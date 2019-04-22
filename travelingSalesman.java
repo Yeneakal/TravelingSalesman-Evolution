@@ -7,6 +7,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.text.DecimalFormat;
 import java.util.Scanner;
+import java.util.ArrayList;
+import java.util.Random;
 
 import javax.swing.JSlider;
 
@@ -34,15 +36,13 @@ public class travelingSalesman extends GraphicsProgram{
 	/////////////////////////////////////////////////////////////
 	// Constants determining the layout of the window contents //
 	/////////////////////////////////////////////////////////////
-
-
+	
 	// Width of the map image in pixels
 	private static final int MAP_WIDTH = 1024;
 	// Height of the map image in pixels
 	private static final int MAP_HEIGHT = 513;
 	// Height and width of a point depicting a temperature station
-	private static final int STATION_SIZE = 5;
-
+	private static final int STATION_SIZE = 8;
 
 	/////////////////////////////////////////////////////////////
 	// File names                                              //
@@ -52,7 +52,6 @@ public class travelingSalesman extends GraphicsProgram{
 	private static final String STATION_FILE = "../station_list.txt";
 	// Path to file with map image
 	private static final String MAP_IMAGE = "../Equirectangular_projection_SW.jpg";
-
 
 	/////////////////////////////////////////////////////////////
 	// Data from the STATION_FILE                              //
@@ -70,6 +69,15 @@ public class travelingSalesman extends GraphicsProgram{
 	private static final int INDEX_LATITUDE = 0;
 	// Longitude index in coordinates. Example: coordinates[INDEX_LONGITUDE][i] is the longitude of station i
 	private static final int INDEX_LONGITUDE = 1;	
+	
+	////////////////////////////////////////////////
+	//Data for the Salesman						 //
+	//////////////////////////////////////////////
+	
+	// Will store the Points of cities plotted
+	private ArrayList<PointDouble> cities = new ArrayList<PointDouble>();
+	//Number of cities the salesman will travel
+	private static int citiesToTravel = 25;
 
 	/////////////////////////////////////////////////////////////
 	// Visual components that are used throughout the code     //
@@ -81,70 +89,10 @@ public class travelingSalesman extends GraphicsProgram{
 	private GLabel loadingMessage;
 	//StationLabel variable used for mouse clicked.
 	private GLabel stationLabel;
-
-	/////////////////////////////////////////////////////////////
-	// Values that change when the slider value changes        //
-	/////////////////////////////////////////////////////////////
-
-	// Indicates that new data needs to be plotted on the map in the run method
 	private boolean loadData = false;
+	
 
-	/**
-	 * In the previous project, you made use of the GOval class from acm.jar to draw circles and 
-	 * ovals on the display. Full documentation for the acm.jar GOval class is here: 
-	 * https://web.stanford.edu/class/cs106a/javataskforce/javadoc/student/acm/graphics/GOval.html
-	 * 
-	 * HOWEVER, in this program you should use the LabeledGOval class below instead of GOval.
-	 * You construct a LabeledGOval just like a GOval, except you add a String label as the
-	 * first parameter to the constructor. This will allow you to associate a String label with
-	 * each oval that you draw to represent a temperature reading station. You will find it helpful
-	 * to associate the station ID with each station that you draw on the map.
-	 * 
-	 * Note that the LabeledGOval class is an inner class, defined inside of the Climate class.
-	 * You will learn more about defining and using inner classes in Computer Science II.
-	 */
-	private class LabeledGOval extends GOval { // LabeledGOval is just a GOval plus extra features
-
-		/**
-		 * Each LabeledGOval instance has its own String label.
-		 * Note that the label is not automatically displayed.
-		 * It is simply associated with the oval that contains it.
-		 */
-		String label;
-
-		/**
-		 * Create an oval of a given size with a given label.
-		 * @param label String associated with oval (not displayed)
-		 * @param width Width in pixels of box containing oval
-		 * @param height Height in pixels of box containing oval
-		 */
-		public LabeledGOval(String label, double width, double height) {
-			super(width,height);
-			this.label = label;
-		}
-
-		/**
-		 * Like the previous constructor, but also specifies location of oval.
-		 * (could also be specified using the GOval setLocation method)
-		 * @param label String associated with oval (not displayed)
-		 * @param x X-coordinate of upper-left corner of bounding box
-		 * @param y Y-coordinate of upper-left corner of bounding box
-		 * @param width Width in pixels of box containing oval
-		 * @param height Height in pixels of box containing oval
-		 */
-		public LabeledGOval(String label, double x, double y, double width, double height) {
-			super(x,y,width,height);
-			this.label = label;
-		}
-		/**
-		 * Getter method that will return the label associated with 
-		 * the oval 
-		 * @return the label of the oval. 
-		 */
-		public String getLabel() {
-			return label;
-		}
-	}
+	
 
 	/**
 	 * This method is automatically called once at the start of the program,
@@ -162,8 +110,10 @@ public class travelingSalesman extends GraphicsProgram{
 		 * will exit with an error if a FileNotFoundException occurs.
 		 */
 		try {
+			//plot cities is called here
 			loadStations();
-			//loadTemperatures();
+			plotMap();
+			plotCities();
 		} catch (FileNotFoundException e) {
 			System.out.println("Cannot start program without appropriate data files");
 			e.printStackTrace();
@@ -175,14 +125,8 @@ public class travelingSalesman extends GraphicsProgram{
 		loadingMessage.setColor(Color.BLACK);
 		add(loadingMessage);
 
-		// Start by loading data for most recent complete year
-		//loadData = true;
-		//yearToLoad = END_YEAR;
-		//resetDisplay(yearToLoad);
-		setLoading();		
+			
 
-		// Required to respond to mouse clicks and movement
-		//addMouseListeners();
 	}
 
 	/////////////////////////////////////////////////////////////
@@ -230,21 +174,21 @@ public class travelingSalesman extends GraphicsProgram{
 		coordinates = new double[2][numStations]; // 2 is for x and y coordinates
 		Scanner stations = new Scanner(new File(STATION_FILE)); // reinitialize Scanner from start
 		stations.nextLine(); // Discard the column headers
+		System.out.println("number of stations" + numStations);
 		for(int i = 0; i < numStations; i++) {
 			String id = stations.next();
 			String restOfLine = stations.nextLine(); // reads rest of line
-			//System.out.println(restOfLine);
 			String name = restOfLine.substring(1,31).trim(); // trim removes whitespace at edges
 			Scanner latLonScanner = new Scanner(restOfLine.substring(31)); // scan the rest of the line
 			double lat = latLonScanner.nextDouble();
 			double lon = latLonScanner.nextDouble();
 			latLonScanner.close();
-			//System.out.println(name +":"+lat+":"+lon);
 
 			stationIDs[i] = id;
 			stationNames[i] = name;
 			coordinates[INDEX_LATITUDE][i] = lat;
 			coordinates[INDEX_LONGITUDE][i] = lon;
+
 		}
 		stations.close();
 	}
@@ -252,27 +196,6 @@ public class travelingSalesman extends GraphicsProgram{
 	/////////////////////////////////////////////////////////////
 	// Methods dealing with the initial layout of the window   //
 	/////////////////////////////////////////////////////////////
-
-	/**
-	 * Reset the entire display to the way it is at the start of the program,
-	 * but with the year slider set to the designated year. Start by removing
-	 * all objects from the window, and then proceed to fill it with all the
-	 * components you need: map, heat scale, year slider (with specific year
-	 * set), and empty station temperature plot in the upper right.
-	 * 
-	 * The method also places the "Loading" message on the screen, so that the
-	 * temperature data for each station can be plotted within the run method.
-	 * 
-	 * @param sliderYear Year to set the slider to, and to load data for.
-	 */
-	private void resetDisplay(int sliderYear) {
-		removeAll();
-		plotMap();
-		//plotHeatScale();
-		//createYearSlider(sliderYear);
-		//drawTemperatureScale(TOP_STATION_PLOT_EDGE);
-		add(loadingMessage);
-	}		
 
 	/**
 	 * Display the equi-rectangular projection of the earth at 1/2 its
@@ -284,19 +207,7 @@ public class travelingSalesman extends GraphicsProgram{
 		add(mapImage);
 	}
 
-	/**
-	 * Move the "Loading" message into view to indicate that data is loading
-	 */
-	private void setLoading() {
-		loadingMessage.setLocation(10, MAP_HEIGHT+50);
-	}
 
-	/**
-	 * Move the "Loading" message out of sight to indicate that loading is finished
-	 */
-	private void doneLoading() {
-		loadingMessage.setLocation(-100, 0);
-	}
 
 	/////////////////////////////////////////////////////////////
 	// Methods dealing with plotting stations on the map       //
@@ -315,8 +226,13 @@ public class travelingSalesman extends GraphicsProgram{
 			pause(1); // Allows program to respond to clicks and other events
 			if(loadData) {
 				/*System.out.println(" we are in this loop");*/
-				plotTemperatureAnomalies(yearToLoad);
-				doneLoading();
+				try {
+					plotCities();
+				} catch (FileNotFoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
 				loadData  = false;
 			}
 		}
@@ -339,81 +255,68 @@ public class travelingSalesman extends GraphicsProgram{
 	 * 
 	 * @param year Year to plot data from
 	 */
-	private void plotTemperatureAnomalies(int year) {
-
-
-		for(int i = 0; i < numTemperatureDataEntries; i ++ ) {
-			if(year == years[i]) { // if parameter matches the data gathered in for-loop, execute the body. 
-
-				String id = temperatureDataStationIDs[i];
-
-				double count = 0;
-				double total = 0;
-
-				for(int month = 0; month < NUM_MONTHS; month++) {
-
-					if( temperatures[month][i] != MISSING) {
-
-						double monthAnom = temperatures[month][i] - baseLineTemperature(month, id);
-						total += monthAnom;
-						count++;
-					}
-				}
-				double avgAnomaly = total/count;
-				int ind = findIndex(id);
-
-				String name = stationNames[ind];
-				double latit = coordinates[INDEX_LATITUDE][ind];
-				double longit = coordinates[INDEX_LONGITUDE][ind];
-
-				//assigns heat scale color.
-				GOval station = new LabeledGOval(name,STATION_SIZE,STATION_SIZE);
-				station.setFilled(true);
-				station.setColor(heatScale(avgAnomaly));
-
-				//plots the data on the map.
-				double x = mapX(longit);
-				double y = mapY(latit); 
-
-				station.setLocation(x, y);
-				add(station);
-			}
-		}
-
-	}
-
-
-
-
+	
 	/**
-	 * Return the index in stationNames and coordinates 
-	 * associated with a given String station ID.
-	 * @param String a stationID from temperatureDataStationIDs
-	 * @return an index in stationIDs such that 
-	 *              stationIDs[index].equals(stationID)
-	 **/
-	public static int findIndex(String stationID) {
+	 * at this point I need to generate random 10 cities to plot on the map.
+	 * $ Get 10 random cities plotted on the map with ovals
+	 */
+	private void plotCities()throws FileNotFoundException {
 
-		for(int i = 0; i < numStations ; i++) {
+		
+		//Agent will travel to 25 of the 5,978 cities in stations list
+		Random rand = new Random();
+		numStations = countLines(STATION_FILE) - 1;
+		
+		for (int i=0; i<=citiesToTravel; i++ ) {
+			//grabs a random index from the range of numStations
+			int ind = rand.nextInt(numStations);
+			ind +=1;
+			
+			System.out.println("num station" + ""+ ind);
 
-			if(stationIDs[i].equals(stationID)) {
-				return i;
-			}
+			String name = stationNames[ind];
+			double latit = coordinates[INDEX_LATITUDE][ind];
+			double longit = coordinates[INDEX_LONGITUDE][ind];
+			
+			//System.out.println("name: " + name);
+
+			//assigns color to a city
+			GOval station = new LabeledGOval(name,STATION_SIZE,STATION_SIZE);
+			station.setFilled(true);
+			station.setFillColor(Color.RED);
+
+			//plots the data on the map.
+			double x = mapX(longit);
+			double y = mapY(latit); 
+			
+			//add new Points to ArrayList of type point
+			cities.add(new PointDouble(x,y));
+	
+			//plot station
+			station.setLocation(x, y);
+			add(station);
 		}
+		System.out.println(" size of the list: " + cities.size());
+		System.out.println("point 0 " + cities.get(0));
+		System.out.println("point 1 " + cities.get(1));
 
-		throw new IllegalArgumentException();
-	}
+		
+		System.out.println(cities.toString());
+		System.out.println("distance from 0 to 1 index: " + cities.get(0).distanceTo(cities.get(1)));
+		
+
+		}
+		
+		
 
 
 
 	//Take the map longitude and convert it to a x pixel coordinate on the applet.
-
 	private double mapX(double longitude) {
 		return (MAP_WIDTH/2.0)*(longitude/180) + (MAP_WIDTH/2.0);
 	}
 
 	//Taking the map latitude and convert it to a y pixel coordinate on the applet
-
 	private double mapY(double latitude) {
 		return (-MAP_HEIGHT/2.0)* (latitude/90) + (MAP_HEIGHT/2.0);
 	}
